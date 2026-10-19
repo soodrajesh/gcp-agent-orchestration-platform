@@ -4,7 +4,7 @@ Final validation, 2026-10-19, project `claude-code-507112`, `us-central1`, on th
 and exercised through `./scripts/test.sh`.
 
 ## Offline suite (free, no cloud calls): `make test`
-`132 passed, 12 skipped`. Covers the engine and stores, the A2A hop and the MCP server over real HTTP, an ADK agent using MCP through
+`134 passed, 12 skipped`. Covers the engine and stores, the A2A hop and the MCP server over real HTTP, an ADK agent using MCP through
 `McpToolset`, and adversarial tests: hallucinated, injected and malformed model proposals, a mutation that succeeds and
 then raises, traffic that moves during approval, concurrent deliveries, kill switch and spend cap, lease heartbeat,
 API input validation, the local-proxy CSRF/DNS-rebinding guard, observability (ledger privacy, spans, trace resource), and the

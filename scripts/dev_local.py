@@ -1,15 +1,20 @@
-"""Local dev server: in-memory store, scripted (fake) model, NO AUTH. Never deploy this.
+"""Local dev server: in-memory store, scripted (fake) model, fake Cloud Run, NO AUTH. Never deploy this.
+
+Filing an alert here yields a canned rollback proposal for a fake `ao-demo-target`, so the whole
+viewer flow (diagnose, plan, approve, rollback, verify) can be exercised with no cloud access.
 
 .venv/bin/python scripts/dev_local.py     # http://127.0.0.1:8080
 """
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import uvicorn
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.agents import LlmAgent
 
 from agentorch.auth import NoAuth
+from agentorch.cloudrun import FakeRunAdmin, RevisionInfo, ServiceInfo
 from agentorch.dispatch import LocalDispatcher
 from agentorch.engine import Engine
 from agentorch.fake_llm import FakeLlm
@@ -20,9 +25,25 @@ from agentorch.workflows.triage import build_triage
 SPECIALIST_PORT, UI_PORT = 8091, 8080
 
 
+PROPOSAL = (
+    '{"diagnosis":"(scripted) errors began with the newest revision","evidence":'
+    "[\"dev-rev-2: KeyError: 'customer_id' in orders.process_checkout\"],"
+    '"action":{"type":"rollback","service":"ao-demo-target","target_revision":"dev-rev-1"}}'
+)
+
+
+def fake_cloud_run() -> FakeRunAdmin:
+    t0 = datetime.now(UTC) - timedelta(hours=1)
+    revs = (
+        RevisionInfo("dev-rev-2", t0 + timedelta(minutes=30), True),
+        RevisionInfo("dev-rev-1", t0, True),
+    )
+    return FakeRunAdmin({"ao-demo-target": ServiceInfo("ao-demo-target", revs, {"dev-rev-2": 100})})
+
+
 class ScriptedForever(FakeLlm):
     async def generate_content_async(self, llm_request, stream=False):
-        self.replies.append("(scripted dev reply) Likely cause: an oversized VM left running.")
+        self.replies.append(PROPOSAL)
         async for r in super().generate_content_async(llm_request, stream):
             yield r
 
@@ -43,7 +64,11 @@ async def main() -> None:
         store,
         {
             "triage": build_triage(
-                f"http://127.0.0.1:{SPECIALIST_PORT}", authenticate=False, model="fake"
+                f"http://127.0.0.1:{SPECIALIST_PORT}",
+                authenticate=False,
+                model="fake",
+                admin=fake_cloud_run(),
+                allowed=frozenset({"ao-demo-target"}),
             )
         },
     )
@@ -59,4 +84,5 @@ async def main() -> None:
     await asyncio.gather(spec.serve(), ui.serve())
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
