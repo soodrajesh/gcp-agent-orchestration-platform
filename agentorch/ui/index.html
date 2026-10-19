@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Orchestrator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5bea'/%3E%3Ccircle cx='9' cy='16' r='3.5' fill='white'/%3E%3Ccircle cx='23' cy='9' r='3.5' fill='white'/%3E%3Ccircle cx='23' cy='23' r='3.5' fill='white'/%3E%3Cpath d='M12 15l8-5M12 17l8 5' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --muted: #5b6573; --line: #e2e6ec;
+    --accent: #2f5bea; --accent-ink: #ffffff;
+    --ok: #137a43; --ok-bg: #e2f5ea; --warn: #8a5a00; --warn-bg: #fdf0d2;
+    --bad: #b3261e; --bad-bg: #fde7e5; --run: #2f5bea; --run-bg: #e6ecfd; --idle: #5b6573; --idle-bg: #eceff3;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1217; --panel: #171b22; --ink: #e8ecf2; --muted: #98a2b3; --line: #262c36;
+      --accent: #6c8cff; --accent-ink: #0b0f1a;
+      --ok: #5fd08f; --ok-bg: #12301f; --warn: #f0c35a; --warn-bg: #33290f;
+      --bad: #ff8a80; --bad-bg: #3a1815; --run: #8fa8ff; --run-bg: #1b2547; --idle: #98a2b3; --idle-bg: #20262f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel);
+           display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+  header span { color: var(--muted); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 20px; padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  textarea, button { font: inherit; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px; border-radius: 8px;
+             border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  button { cursor: pointer; border-radius: 8px; border: 1px solid var(--line); padding: 7px 14px;
+           background: var(--panel); color: var(--ink); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .runs { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px; }
+  .runs li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; display: grid; gap: 3px; }
+  .runs li:hover { border-color: var(--accent); }
+  .runs li.sel { border-color: var(--accent); background: var(--run-bg); }
+  .runs .t { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .runs .id { font-family: var(--mono); font-size: 12px; }
+  .runs .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .st-succeeded { color: var(--ok); background: var(--ok-bg); }
+  .st-awaiting_approval { color: var(--warn); background: var(--warn-bg); }
+  .st-running, .st-pending { color: var(--run); background: var(--run-bg); }
+  .st-failed, .st-rejected, .st-budget_exceeded, .st-halted { color: var(--bad); background: var(--bad-bg); }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 4px 0 18px; }
+  .kv div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .kv b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .kv small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .bar { height: 6px; background: var(--idle-bg); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  ol.steps { list-style: none; margin: 0; padding: 0; position: relative; }
+  ol.steps li { position: relative; padding: 0 0 18px 30px; }
+  ol.steps li::before { content: ""; position: absolute; left: 9px; top: 20px; bottom: 0; width: 2px; background: var(--line); }
+  ol.steps li:last-child::before { display: none; }
+  .dot { position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+         font-size: 11px; font-weight: 700; background: var(--idle-bg); color: var(--idle); }
+  .dot.done { background: var(--ok-bg); color: var(--ok); }
+  .dot.wait { background: var(--warn-bg); color: var(--warn); }
+  .step-h { font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+  .step-h small { color: var(--muted); font-weight: 400; }
+  pre { margin: 6px 0 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+        white-space: pre-wrap; word-break: break-word; font: 12.5px/1.5 var(--mono); max-height: 240px; overflow: auto; }
+  .approval { margin-top: 8px; border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 12px; }
+  .approval.decided { border-color: var(--line); background: var(--bg); }
+  .approval pre { background: transparent; border: 0; padding: 0; color: var(--ink); max-height: 180px; }
+  #platform { padding: 8px 24px; font-size: 13px; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--muted);
+              display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  #platform.halted { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+  #platform b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  #platform.halted b { color: var(--bad); }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  .err { color: var(--bad); margin-top: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent Orchestrator</h1>
+  <span>durable multi-agent runs &middot; A2A &middot; human approval</span>
+</header>
+<div id="platform" role="status"></div>
+<main>
+  <div>
+    <section>
+      <h2>New incident run</h2>
+      <textarea id="alert" aria-label="Alert text">ALERT: 5xx error rate above 50% on Cloud Run service ao-demo-target, started shortly after the latest deploy.</textarea>
+      <div class="row"><button class="primary" id="start">Start triage run</button><span id="startmsg" class="err"></span></div>
+    </section>
+    <section style="margin-top:16px">
+      <h2>Recent runs</h2>
+      <ul class="runs" id="runs"></ul>
+    </section>
+  </div>
+  <section id="detail"><div class="empty">Select a run to see its steps, cost and approvals.</div></section>
+</main>
+<script>
+let selected = null, timer = null;
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? (n.className = v) : n.setAttribute(k, v);
+  for (const k of kids) n.append(k);
+  return n;
+};
+const pill = (s) => el("span", { class: "pill st-" + s }, s.replace("_", " "));
+const ago = (iso) => { const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  return s < 60 ? Math.round(s) + "s ago" : s < 3600 ? Math.round(s / 60) + "m ago" : Math.round(s / 3600) + "h ago"; };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 200));
+  return r.json();
+}
+
+async function platform() {
+  try {
+    const st = await api("/admin/state"), el_ = $("platform");
+    el_.className = st.killswitch ? "halted" : "";
+    el_.replaceChildren(
+      el(st.killswitch ? "span" : "span", {}, st.killswitch ? "KILL SWITCH ON: new runs are refused and running runs stop before their next step" : "Kill switch off"),
+      el("span", {}, "Spend today ", el("b", {}, "$" + st.spent_today_usd.toFixed(4)), " of ",
+        el("b", {}, st.daily_cap_usd == null ? "no cap" : "$" + st.daily_cap_usd.toFixed(2)), " daily cap"));
+  } catch (e) { /* the run list reports connectivity problems */ }
+}
+
+async function refresh() {
+  platform();
+  try {
+    const runs = await api("/runs?limit=15");
+    const ul = $("runs"); ul.replaceChildren();
+    for (const r of runs) {
+      const li = el("li", { class: r.id === selected ? "sel" : "" },
+        el("div", { class: "t" }, el("span", { class: "id" }, r.id.slice(0, 12)), pill(r.status)),
+        el("div", { class: "sub" }, (r.input.alert || r.workflow) + ""),
+        el("div", { class: "sub" }, r.workflow + " · " + ago(r.created_at)));
+      li.onclick = () => { selected = r.id; refresh(); };
+      ul.append(li);
+    }
+    if (!runs.length) ul.append(el("div", { class: "empty" }, "No runs yet."));
+    if (selected) render(runs.find((r) => r.id === selected) || await api("/runs/" + selected));
+  } catch (e) { $("startmsg").textContent = e.message; }
+}
+
+function render(run) {
+  const d = $("detail"); d.replaceChildren();
+  const used = run.usage.total_tokens ?? (run.usage.input_tokens + run.usage.output_tokens);
+  const pct = Math.min(100, Math.round((used / run.budget.max_tokens) * 100));
+  d.append(
+    el("h2", {}, "Run " + run.id.slice(0, 12)),
+    el("div", { class: "kv" },
+      el("div", {}, el("small", {}, "Status"), el("b", {}, pill(run.status))),
+      el("div", {}, el("small", {}, "Tokens"), el("b", {}, used.toLocaleString()),
+        el("div", { class: "bar" }, el("i", { style: "width:" + pct + "%" }))),
+      el("div", {}, el("small", {}, "Cost"), el("b", {}, "$" + run.usage.cost_usd.toFixed(5))),
+      el("div", {}, el("small", {}, "Budget"), el("b", {}, run.budget.max_tokens.toLocaleString() + " tok / $" + run.budget.max_cost_usd))),
+    el("h2", {}, "Steps"));
+  const stepNames = run.step_order && run.step_order.length ? run.step_order : Object.keys(run.steps);
+  const ol = el("ol", { class: "steps" });
+  stepNames.forEach((name, i) => {
+    const done = run.steps[name], appr = run.approvals[name];
+    const dot = el("span", { class: "dot " + (done ? "done" : appr && !appr.decided ? "wait" : "") }, done ? "✓" : String(i + 1));
+    const head = el("div", { class: "step-h" }, name, el("small", {},
+      done ? "done · " + (done.usage.input_tokens + done.usage.output_tokens) + " tok" : appr && !appr.decided ? "waiting for approval" : "pending"));
+    const li = el("li", {}, dot, head);
+    if (done) li.append(el("pre", {}, typeof done.output === "string" ? done.output : JSON.stringify(done.output, null, 2)));
+    if (done && done.output && done.output.skipped) head.lastChild.textContent = "skipped (no action needed)";
+    if (appr) {
+      const box = el("div", { class: "approval" + (appr.decided ? " decided" : "") }, el("strong", {}, appr.decided ? (appr.approved ? "Approved" : "Rejected") + " by " + appr.decided_by : "Approval required"), el("pre", {}, appr.prompt));
+      if (!appr.decided) {
+        const ok = el("button", { class: "primary" }, "Approve"), no = el("button", { class: "danger" }, "Reject");
+        const decide = (approved) => async () => { ok.disabled = no.disabled = true;
+          try { await api(`/runs/${run.id}/approvals/${name}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ approved }) }); refresh(); }
+          catch (e) { box.append(el("div", { class: "err" }, e.message)); ok.disabled = no.disabled = false; } };
+        ok.onclick = decide(true); no.onclick = decide(false);
+        box.append(el("div", { class: "row" }, ok, no));
+      }
+      li.append(box);
+    }
+    ol.append(li);
+  });
+  d.append(ol);
+  if (run.error) d.append(el("div", { class: "err" }, "Error: " + run.error));
+}
+
+$("start").onclick = async () => {
+  $("start").disabled = true; $("startmsg").textContent = "";
+  try {
+    const run = await api("/runs", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workflow: "triage", input: { alert: $("alert").value } }) });
+    selected = run.id; await refresh();
+  } catch (e) { $("startmsg").textContent = e.message; }
+  $("start").disabled = false;
+};
+refresh(); timer = setInterval(refresh, 2500);
+</script>
+</body>
+</html>

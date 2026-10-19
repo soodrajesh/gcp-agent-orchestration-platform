@@ -1,0 +1,10 @@
+.venv
+.git
+tests
+docs
+terraform
+scripts
+**/__pycache__
+.env*
+deploy.env
+.playwright-mcp

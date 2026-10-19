@@ -1,0 +1,54 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: lint
+        run: ruff check . && ruff format --check .
+      - name: offline tests (fake model, no cloud access)
+        run: pytest -q -W ignore
+
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+      - name: fmt, init (no backend), validate
+        working-directory: terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true # advisory: reports known CVEs in the resolved dependency set
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pip-audit bandit
+      - name: known vulnerabilities in dependencies
+        run: pip-audit
+      - name: static security analysis (application package)
+        run: bandit -r agentorch -ll -q

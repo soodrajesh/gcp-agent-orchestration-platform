@@ -1,0 +1,50 @@
+[project]
+name = "agentorch"
+version = "0.1.0"
+description = "Durable multi-agent orchestration on the GCP free tier"
+requires-python = ">=3.11"
+dependencies = [
+  "google-adk>=2.12",
+  "a2a-sdk[http-server]>=1.2",
+  "uvicorn>=0.30",
+  "httpx>=0.27",
+  "google-cloud-firestore>=2.19",
+  "pydantic>=2.7",
+  "google-cloud-pubsub>=2.21",
+  "starlette>=0.40",
+  "mcp>=2.3",
+  "google-cloud-run>=0.10",
+  "google-cloud-logging>=3.10",
+  "opentelemetry-exporter-gcp-trace>=1.9",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",  # ADK's Cloud Trace exporter imports it
+  "opentelemetry-instrumentation-httpx>=0.50b0",
+  "opentelemetry-instrumentation-starlette>=0.50b0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "pytest-timeout", "ruff"]
+# Test-only second provider (never installed in the deployed image): cross-vendor eval runs.
+openai = ["litellm>=1.50"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agentorch", "agentorch.agents", "agentorch.workflows", "agentorch.ui"]
+
+[tool.setuptools.package-data]
+"agentorch.ui" = ["*.html"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+timeout = 30
+testpaths = ["tests"]
+markers = [
+  "live_openai: calls the real OpenAI API; opt-in via AGENTORCH_LIVE_OPENAI=1",
+  "firestore: needs real Firestore; opt-in via AGENTORCH_FIRESTORE_PROJECT=<project>",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
