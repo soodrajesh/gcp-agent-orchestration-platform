@@ -2,7 +2,8 @@
 PY := .venv/bin/python
 
 test:  ## free, offline, deterministic (fake model); no cloud calls
-	$(PY) -m pytest -q -W ignore
+	# the `pytest` console script, exactly as CI runs it (`python -m pytest` would also put the cwd on sys.path)
+	.venv/bin/pytest -q -W ignore
 
 lint:
 	.venv/bin/ruff check . --exclude .venv

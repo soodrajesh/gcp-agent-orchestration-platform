@@ -11,6 +11,7 @@ import uvicorn
 from google.adk.agents import LlmAgent  # noqa: F401  (import check)
 from google.adk.runners import InMemoryRunner
 from google.genai import types
+from helpers import PROPOSAL, free_port
 from starlette.requests import Request
 
 from agentorch.agents.incident_analyst import build_agent
@@ -18,7 +19,6 @@ from agentorch.auth import Caller, Unauthenticated
 from agentorch.cloudrun import FakeRunAdmin, RevisionInfo, ServiceInfo
 from agentorch.fake_llm import FakeLlm
 from agentorch.mcp_ops import LogLine, build_app, build_server
-from tests.conftest import PROPOSAL, free_port
 
 T0 = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 CALLER = "agent@proj.iam.gserviceaccount.com"

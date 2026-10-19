@@ -1,12 +1,12 @@
 import asyncio
 import os
-import socket
 import uuid
 
 import pytest
 import uvicorn
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.agents import LlmAgent
+from helpers import PROPOSAL, free_port
 
 from agentorch.fake_llm import FakeLlm
 from agentorch.store import InMemoryRunStore
@@ -39,19 +39,6 @@ async def store(request):
     yield FirestoreRunStore(client, collection=col)
     async for doc in client.collection(col).list_documents():
         await doc.delete()
-
-
-PROPOSAL = (
-    '{"diagnosis":"bad deploy: errors began with the newest revision",'
-    '"evidence":["KeyError: customer_id in orders.process_checkout"],'
-    '"action":{"type":"rollback","service":"ao-demo-target","target_revision":"rev-2"}}'
-)
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
 
 @pytest.fixture
